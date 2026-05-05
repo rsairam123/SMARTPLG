@@ -4,9 +4,6 @@ SmartCSV UI - Graphical Interface for PDF to Excel Conversion
 Extracts EDI field descriptions from PDF specification documents and generates Excel files
 """
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
-import threading
 from pathlib import Path
 import re
 import csv
@@ -15,6 +12,20 @@ import PyPDF2
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils import get_column_letter
+
+# Optional tkinter imports for GUI (not needed for web API)
+try:
+    import tkinter as tk
+    from tkinter import ttk, filedialog, messagebox, scrolledtext
+    import threading
+    TKINTER_AVAILABLE = True
+except ImportError:
+    TKINTER_AVAILABLE = False
+    # Dummy classes for when tkinter is not available
+    class tk:
+        pass
+    class ttk:
+        pass
 
 
 class EDIFieldExtractor:
