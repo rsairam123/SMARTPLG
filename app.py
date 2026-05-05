@@ -1,6 +1,7 @@
 """
 SmartPLG Accelerator Web Application - Flask Backend
 Handles PDF upload, processing, and file generation
+Fixed: Using edi_extractor instead of smartcsv_ui to avoid tkinter dependency
 """
 
 from flask import Flask, request, jsonify, send_file
