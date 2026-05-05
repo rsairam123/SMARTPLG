@@ -94,37 +94,68 @@ class EDIFieldExtractor:
                 self.code_lists['N101'] = codes
     
     def _parse_data_element_summary(self) -> List[Tuple[str, str]]:
-        """Parse Data Element Summary sections"""
+        """Parse Data Element Summary sections with improved flexibility"""
         field_mappings = []
         
-        # Pattern to match Data Element Summary sections
-        summary_pattern = r'Data Element Summary\s*\n.*?Ref\.\s+Des\.\s+Element\s+Name\s+Attributes\s*\n(.*?)(?=Data Element Summary|\Z)'
+        # Try multiple patterns to match different PDF formats
+        patterns = [
+            # Pattern 1: Standard "Data Element Summary" format
+            r'Data Element Summary\s*\n.*?Ref\.\s+Des\.\s+Element\s+Name\s+Attributes\s*\n(.*?)(?=Data Element Summary|\Z)',
+            # Pattern 2: Alternative format with "SEGMENT:"
+            r'SEGMENT:\s*([A-Z0-9]+).*?\n(.*?)(?=SEGMENT:|\Z)',
+            # Pattern 3: Simple table format
+            r'(?:Ref|Element|Field).*?(?:Des|Code|ID).*?(?:Name|Description).*?\n(.*?)(?=\n\n|\Z)',
+        ]
         
-        summaries = re.finditer(summary_pattern, self.text_content, re.DOTALL | re.IGNORECASE)
-        
-        for summary in summaries:
-            content = summary.group(1)
-            
-            # Parse each line in the summary
-            lines = content.split('\n')
-            for line in lines:
-                line = line.strip()
-                if not line or line.startswith('---') or line.startswith('==='):
-                    continue
+        for pattern in patterns:
+            summaries = list(re.finditer(pattern, self.text_content, re.DOTALL | re.IGNORECASE))
+            if summaries:
+                for summary in summaries:
+                    content = summary.group(1) if len(summary.groups()) == 1 else summary.group(2)
+                    
+                    # Parse each line in the summary
+                    lines = content.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if not line or line.startswith('---') or line.startswith('===') or len(line) < 5:
+                            continue
+                        
+                        # Try multiple extraction patterns
+                        code = None
+                        description = None
+                        
+                        # Pattern 1: Standard format (code + description)
+                        match = re.match(r'^([A-Z0-9]{2,6})\s+(.+?)(?:\s+[MO]\s+|\s+[A-Z]{1,3}\d+|\s*$)', line)
+                        if match:
+                            code = match.group(1).strip()
+                            description = match.group(2).strip()
+                        else:
+                            # Pattern 2: Alternative format
+                            match = re.match(r'^([A-Z0-9]{2,6})\s*[-:]\s*(.+?)(?:\s+[MO]\s+|\s*$)', line)
+                            if match:
+                                code = match.group(1).strip()
+                                description = match.group(2).strip()
+                            else:
+                                # Pattern 3: Tab or multiple space separated
+                                parts = re.split(r'\s{2,}|\t', line, maxsplit=1)
+                                if len(parts) == 2 and re.match(r'^[A-Z0-9]{2,6}$', parts[0]):
+                                    code = parts[0].strip()
+                                    description = parts[1].strip()
+                        
+                        if code and description:
+                            # Clean up description
+                            description = re.sub(r'\s+', ' ', description)
+                            description = description.replace('  ', ' ')
+                            # Remove common suffixes
+                            description = re.sub(r'\s+[MO]\s*$', '', description)
+                            description = re.sub(r'\s+[A-Z]{1,3}\d+\s*$', '', description)
+                            
+                            if description and len(description) > 3:
+                                field_mappings.append((description, code))
                 
-                # Try to extract field code and description
-                # Pattern: code (alphanumeric) followed by description
-                match = re.match(r'^([A-Z0-9]{2,6})\s+(.+?)(?:\s+[MO]\s+|\s+[A-Z]{1,3}\d+|\s*$)', line)
-                if match:
-                    code = match.group(1).strip()
-                    description = match.group(2).strip()
-                    
-                    # Clean up description
-                    description = re.sub(r'\s+', ' ', description)
-                    description = description.replace('  ', ' ')
-                    
-                    if description and len(description) > 3:
-                        field_mappings.append((description, code))
+                # If we found mappings with this pattern, stop trying others
+                if field_mappings:
+                    break
         
         return field_mappings
     
