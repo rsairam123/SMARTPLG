@@ -1,5 +1,5 @@
 """
-SmartCSV Web Application - Flask Backend
+SmartPLG Accelerator Web Application - Flask Backend
 Handles PDF upload, processing, and file generation
 """
 
@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 import os
 import tempfile
 from pathlib import Path
-from smartcsv_ui import EDIFieldExtractor
+from edi_extractor import EDIFieldExtractor
 from csv_to_gentran_ddf import generate_ddf
 import traceback
 
